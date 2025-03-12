@@ -22,7 +22,8 @@ def validate_dataset(dataset_path):
 
 if __name__ == '__main__':
     import os
-    ds_path = 'dataset'
+    DATASET_ROOT = r"C:/Users/Layth/Desktop/New folder/dataset"
+    ds_path = DATASET_ROOT
     errs = validate_dataset(ds_path)
     if errs:
         print("Validation errors found:")
