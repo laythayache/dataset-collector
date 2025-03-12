@@ -11,6 +11,9 @@ from tkinter import ttk, messagebox, scrolledtext
 from PIL import Image, ImageTk
 from albumentations import Compose, RandomBrightnessContrast, HueSaturationValue, MotionBlur, ShiftScaleRotate
 
+# Define a fixed dataset root using forward slashes
+DATASET_ROOT = r"C:/Users/Layth/Desktop/New folder/dataset"
+
 ###############################################
 # FUNCTIONS TO CREATE PROJECT STRUCTURE & FILES
 ###############################################
@@ -21,33 +24,29 @@ def create_project_structure():
     
     The folder structure created is:
     
-      project_root/
-        ├── dataset/
-        │     ├── metadata.csv         -> Logs details for each captured image.
-        │     ├── raw/                 -> Contains raw captured data.
-        │     │      (organized as: person/letter/session/)
-        │     ├── processed/           -> For cleaned and split data (train, val, test).
-        │     │      ├── train/
-        │     │      ├── val/
-        │     │      └── test/
-        │     └── docs/                -> Documentation (e.g., consent forms, guides).
-        │            └── ethical_consent_forms/
-        │
-        ├── data_collector.py          -> Captures images and hand landmarks.
-        ├── validate_dataset.py        -> Validates images and landmark files.
-        └── augment_dataset.py         -> Defines a data augmentation pipeline.
+      DATASET_ROOT/  (i.e., C:/Users/Layth/Desktop/New folder/dataset)
+        ├── metadata.csv         -> Logs details for each captured image.
+        ├── raw/                 -> Contains raw captured data (organized as: person/letter/session/).
+        ├── processed/           -> For cleaned and split data (train, val, test).
+        │      ├── train/
+        │      ├── val/
+        │      └── test/
+        ├── docs/                -> Documentation (e.g., consent forms, guides).
+        │       └── ethical_consent_forms/
+        └── short_images/        -> Contains captured images (using a short relative path).
     """
     try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        dataset_root = os.path.join(script_dir, "dataset")
+        dataset_root = DATASET_ROOT
         
-        # Create dataset folder and subdirectories
+        # Create main dataset folder and subdirectories
         os.makedirs(dataset_root, exist_ok=True)
         os.makedirs(os.path.join(dataset_root, "raw"), exist_ok=True)
         os.makedirs(os.path.join(dataset_root, "processed", "train"), exist_ok=True)
         os.makedirs(os.path.join(dataset_root, "processed", "val"), exist_ok=True)
         os.makedirs(os.path.join(dataset_root, "processed", "test"), exist_ok=True)
         os.makedirs(os.path.join(dataset_root, "docs", "ethical_consent_forms"), exist_ok=True)
+        # Create a separate folder for images (short path)
+        os.makedirs(os.path.join(dataset_root, "short_images"), exist_ok=True)
         
         # Create a default metadata.csv if it does not exist
         metadata_csv = os.path.join(dataset_root, "metadata.csv")
@@ -61,6 +60,7 @@ def create_project_structure():
                 ])
         
         # Create code files (basic content provided)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         create_data_collector_file(script_dir)
         create_validate_dataset_file(script_dir)
         create_augment_dataset_file(script_dir)
@@ -70,7 +70,7 @@ def create_project_structure():
         messagebox.showerror("Error", f"Failed to create project structure:\n{str(e)}")
 
 def create_data_collector_file(script_dir):
-    content = '''import cv2
+    content = f'''import cv2
 import mediapipe as mp
 import csv
 import time
@@ -78,14 +78,16 @@ import os
 import numpy as np
 from datetime import datetime
 
+# Define a fixed dataset root path using forward slashes
+DATASET_ROOT = r"C:/Users/Layth/Desktop/New folder/dataset"
+
 class DataCollector:
     """
     Captures images from your camera along with hand landmarks.
     Data is stored under:
-      dataset/raw/{person_name}/{letter}/{session_name_timestamp}/
-    Two subfolders are created:
-      - images/    -> for JPEG photos
-      - landmarks/ -> for landmark .npy files
+      DATASET_ROOT/raw/{{person_name}}/{{letter}}/{{session_name}}_{{timestamp}}/landmarks/
+    Images are saved in:
+      DATASET_ROOT/short_images/
     Filenames include the letter, person name, session name, timestamp, and an index.
     """
     def __init__(self, person_name="Unknown", session_name="Session"):
@@ -96,17 +98,17 @@ class DataCollector:
             min_detection_confidence=0.7,
             min_tracking_confidence=0.5
         )
-        self.metadata = {
+        self.metadata = {{
             'person_name': person_name,
             'handedness': 'right',
             'skin_tone': 'type_IV',
             'environment': 'indoor_daylight',
-            'camera_settings': {
+            'camera_settings': {{
                 'resolution': (1920, 1080),
                 'exposure': 'auto',
                 'white_balance': 5500
-            }
-        }
+            }}
+        }}
 
     def capture_session(self, letter: str, num_samples: int, session_name: str):
         cap = cv2.VideoCapture(0)
@@ -114,13 +116,13 @@ class DataCollector:
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_folder = f"dataset/raw/{{}}/{{}}/{{}}_{{}}".format(
-            self.metadata['person_name'], letter, session_name, timestamp)
-        # Create two subfolders: one for images, one for landmarks
-        images_folder = os.path.join(base_folder, "images")
-        landmarks_folder = os.path.join(base_folder, "landmarks")
-        os.makedirs(images_folder, exist_ok=True)
+        # Landmarks will be stored in the long folder structure
+        session_folder = os.path.join(DATASET_ROOT, "raw", self.metadata['person_name'], letter, f"{{session_name}}_{{timestamp}}")
+        landmarks_folder = os.path.join(session_folder, "landmarks")
         os.makedirs(landmarks_folder, exist_ok=True)
+        # Images will be stored in the short_images folder
+        images_folder = os.path.join(DATASET_ROOT, "short_images")
+        os.makedirs(images_folder, exist_ok=True)
         
         metadata_entry = []
         
@@ -131,24 +133,24 @@ class DataCollector:
                 
             results = self.hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             
-            filename = f"{{}}_{{}}_{{}}_{{:04d}}".format(letter, self.metadata['person_name'], session_name + "_" + timestamp, i)
-            image_path = os.path.join(images_folder, f"{{}}.jpg".format(filename))
+            filename = f"{{letter}}_{{self.metadata['person_name']}}_{{session_name}}_{{timestamp}}_{{i:04d}}"
+            image_path = os.path.join(images_folder, f"{{filename}}.jpg")
             cv2.imwrite(image_path, frame)
             
             landmark_path = ""
             if results.multi_hand_landmarks:
                 landmarks = np.array([[lm.x, lm.y, lm.z] for lm in results.multi_hand_landmarks[0].landmark])
-                landmark_path = os.path.join(landmarks_folder, f"{{}}_landmarks.npy".format(filename))
+                landmark_path = os.path.join(landmarks_folder, f"{{filename}}_landmarks.npy")
                 np.save(landmark_path, landmarks)
             
-            metadata_entry.append({
+            metadata_entry.append({{
                 'filename': filename,
                 'capture_time': time.time(),
                 'landmarks_detected': bool(results.multi_hand_landmarks),
                 'num_hands': len(results.multi_hand_landmarks) if results.multi_hand_landmarks else 0
-            })
+            }})
         
-        self._update_metadata_csv(base_folder, metadata_entry)
+        self._update_metadata_csv(session_folder, metadata_entry)
         cap.release()
 
     def _update_metadata_csv(self, base_folder, entries):
@@ -167,7 +169,7 @@ if __name__ == '__main__':
         f.write(content)
 
 def create_validate_dataset_file(script_dir):
-    content = '''def validate_dataset(dataset_path):
+    content = f'''def validate_dataset(dataset_path):
     """
     Walks through the dataset folder and validates each JPEG image.
     Checks that each image is 1920x1080 and that a corresponding landmarks file exists.
@@ -181,17 +183,18 @@ def create_validate_dataset_file(script_dir):
                 try:
                     img = Image.open(os.path.join(root, file))
                     if img.size != (1920, 1080):
-                        errors.append(f"Size mismatch: {file}")
+                        errors.append(f"Size mismatch: {{file}}")
                 except Exception as e:
-                    errors.append(f"Corrupt file: {file} - {str(e)}")
+                    errors.append(f"Corrupt file: {{file}} - {{str(e)}}")
                 landmark_file = os.path.join(root, file.replace('.jpg', '_landmarks.npy'))
                 if not os.path.exists(landmark_file):
-                    errors.append(f"Missing landmarks: {file}")
+                    errors.append(f"Missing landmarks: {{file}}")
     return errors
 
 if __name__ == '__main__':
     import os
-    ds_path = 'dataset'
+    DATASET_ROOT = r"C:/Users/Layth/Desktop/New folder/dataset"
+    ds_path = DATASET_ROOT
     errs = validate_dataset(ds_path)
     if errs:
         print("Validation errors found:")
@@ -226,10 +229,9 @@ if __name__ == '__main__':
         f.write(content)
 
 ###############################################
-# MAIN GUI: Dataset Creation Navigator
+# DATA AUGMENTATION FUNCTION & PIPELINE
 ###############################################
 
-# Define the augmentation pipeline
 augmentation = Compose([
     RandomBrightnessContrast(p=0.5),
     HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.7),
@@ -241,6 +243,10 @@ def apply_augmentation(image):
     augmented = augmentation(image=image)
     print("Augmentation applied")  # Debug statement to verify augmentation
     return augmented['image']
+
+###############################################
+# MAIN GUI: Dataset Creation Navigator
+###############################################
 
 class DatasetCreationGUI:
     def __init__(self, root):
@@ -303,7 +309,8 @@ class DatasetCreationGUI:
             "   - metadata.csv         -> Logs details for each image.\n"
             "   - raw/                 -> Stores raw captured data (organized by person, letter, session).\n"
             "   - processed/           -> For cleaned & split data (train, val, test).\n"
-            "   - docs/                -> Documentation and consent forms.\n\n"
+            "   - docs/                -> Documentation and consent forms.\n"
+            "   - short_images/        -> Contains images saved using a short path.\n\n"
             "Code Files:\n"
             " - data_collector.py      : Captures images and landmarks.\n"
             " - validate_dataset.py    : Validates dataset integrity.\n"
@@ -326,7 +333,7 @@ class DatasetCreationGUI:
             "1. Enter the Person Name (e.g., Alice) and Session Name (e.g., MorningSession).\n"
             "2. Select the Arabic letter you are capturing and the number of samples to take.\n"
             "3. The live preview below shows what the camera sees. Ensure your hand is visible for landmark detection.\n"
-            "4. Click 'Start Data Collection' to capture images and landmarks. Photos and landmarks are saved in separate folders.\n"
+            "4. Click 'Start Data Collection' to capture images and landmarks.\n"
         )
         lbl_instructions = ttk.Label(self.collection_frame, text=instructions, font=("Arial", 12), justify=tk.LEFT)
         lbl_instructions.pack(pady=5)
@@ -387,16 +394,17 @@ class DatasetCreationGUI:
             return
         letter = self.letter_var.get()
         num_samples = self.samples_var.get()
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        dataset_dir = os.path.join(script_dir, "dataset")
+        # Use the fixed dataset directory
+        dataset_dir = DATASET_ROOT
         
-        # Create folder structure: dataset/raw/{person_name}/{letter}/{session_name_timestamp}/ with subfolders "images" and "landmarks"
+        # Create folder structure for landmarks (long path)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         session_folder = os.path.join(dataset_dir, "raw", person_name, letter, f"{session_name}_{timestamp}")
-        images_folder = os.path.join(session_folder, "images")
         landmarks_folder = os.path.join(session_folder, "landmarks")
-        os.makedirs(images_folder, exist_ok=True)
         os.makedirs(landmarks_folder, exist_ok=True)
+        # Images will be saved to the short_images folder (short relative path)
+        images_folder = os.path.join(dataset_dir, "short_images")
+        os.makedirs(images_folder, exist_ok=True)
         
         captured = 0
         for i in range(num_samples):
@@ -404,26 +412,37 @@ class DatasetCreationGUI:
             if not ret:
                 continue
             frame = cv2.flip(frame, 1)
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.hands.process(rgb_frame)
             
+            # Define filename based on current sample index
             filename = f"{letter}_{person_name}_{session_name}_{timestamp}_{i:04d}"
+            
+            # 1. Save the original image to the short_images folder
             image_path = os.path.join(images_folder, f"{filename}.jpg")
             cv2.imwrite(image_path, frame)
             
+            # 2. Process and save landmarks for the image to the landmarks folder
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = self.hands.process(rgb_frame)
             if results.multi_hand_landmarks:
                 landmarks = np.array([[lm.x, lm.y, lm.z] for lm in results.multi_hand_landmarks[0].landmark])
                 np.save(os.path.join(landmarks_folder, f"{filename}_landmarks.npy"), landmarks)
             
-            # Apply augmentation and save augmented image
+            # 3. Apply augmentation and save the augmented image to the short_images folder
             augmented_frame = apply_augmentation(image=frame)
             augmented_image_path = os.path.join(images_folder, f"{filename}_augmented.jpg")
             cv2.imwrite(augmented_image_path, augmented_frame)
             
+            # 4. Process and save landmarks for the augmented image
+            rgb_augmented = cv2.cvtColor(augmented_frame, cv2.COLOR_BGR2RGB)
+            results_aug = self.hands.process(rgb_augmented)
+            if results_aug.multi_hand_landmarks:
+                landmarks_aug = np.array([[lm.x, lm.y, lm.z] for lm in results_aug.multi_hand_landmarks[0].landmark])
+                np.save(os.path.join(landmarks_folder, f"{filename}_augmented_landmarks.npy"), landmarks_aug)
+            
             captured += 1
             time.sleep(0.1)
         
-        messagebox.showinfo("Data Collection", f"Captured {captured} images for letter '{letter}'\nSaved in:\n{session_folder}")
+        messagebox.showinfo("Data Collection", f"Captured {captured} images for letter '{letter}'\nSaved in:\nLandmarks: {landmarks_folder}\nImages: {images_folder}")
     
     def create_validation_tab(self):
         header = ttk.Label(self.validation_frame, text="Dataset Validation", font=("Arial", 18, "bold"))
@@ -449,8 +468,7 @@ class DatasetCreationGUI:
         except ImportError:
             messagebox.showerror("Error", "validate_dataset.py not found. Please create the project structure first.")
             return
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        ds_path = os.path.join(script_dir, "dataset")
+        ds_path = DATASET_ROOT
         errors = validate_dataset.validate_dataset(ds_path)
         self.validation_output.delete(1.0, tk.END)
         if errors:
@@ -490,7 +508,7 @@ class DatasetCreationGUI:
             "   - In the 'Data Collection' tab, enter your Person Name and Session Name.\n"
             "   - Select the Arabic letter you are capturing and the number of images to take.\n"
             "   - The live preview shows your camera feed; ensure your hand is visible for landmark detection.\n"
-            "   - Click 'Start Data Collection' to capture data. Images are saved in the 'images' folder and landmarks in the 'landmarks' folder under your session.\n\n"
+            "   - Click 'Start Data Collection' to capture data. Images are saved in the 'short_images' folder and landmarks in the 'raw' folder under your session.\n\n"
             "3. **Validation**:\n"
             "   - Use the 'Validation' tab to run checks on your dataset.\n"
             "   - The script ensures each image is 1920x1080 and that every image has a corresponding landmarks file.\n\n"
@@ -498,8 +516,8 @@ class DatasetCreationGUI:
             "   - The 'Augmentation' tab displays the details of the augmentation pipeline, which applies random transforms to increase data diversity.\n\n"
             "5. **Understanding the Files & Folders**:\n"
             "   - **dataset/metadata.csv**: Logs details for each captured image.\n"
-            "   - **dataset/raw/**: Contains your raw data organized by person, letter, and session.\n"
-            "       - Within each session, 'images/' holds the JPEG photos and 'landmarks/' holds the corresponding .npy files.\n"
+            "   - **dataset/raw/**: Contains your raw data organized by person, letter, and session (landmarks are stored here).\n"
+            "   - **dataset/short_images/**: Contains the captured images (using a shorter relative path).\n"
             "   - **dataset/processed/**: For your cleaned and split data (train/val/test) after processing.\n"
             "   - **dataset/docs/ethical_consent_forms/**: Contains the digital consent form images.\n"
             "   - **data_collector.py**: Captures images and landmarks from your camera.\n"
