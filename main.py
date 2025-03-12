@@ -12,7 +12,7 @@ from PIL import Image, ImageTk
 from albumentations import Compose, RandomBrightnessContrast, HueSaturationValue, MotionBlur, ShiftScaleRotate
 
 # Define a fixed dataset root using forward slashes
-DATASET_ROOT = r"C:/Users/Layth/Desktop/New folder/dataset"
+DATASET_ROOT = "dataset"
 
 ###############################################
 # FUNCTIONS TO CREATE PROJECT STRUCTURE & FILES
