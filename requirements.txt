@@ -1,6 +1,0 @@
-opencv-python-headless
-mediapipe
-numpy
-pillow
-tk
-albumentations
